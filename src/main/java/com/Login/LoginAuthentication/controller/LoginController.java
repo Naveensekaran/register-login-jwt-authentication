@@ -4,26 +4,30 @@ import com.Login.LoginAuthentication.dto.LoginDto;
 import com.Login.LoginAuthentication.model.UserDetails;
 import com.Login.LoginAuthentication.service.LoginService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/user")
 public class LoginController {
 
     @Autowired
     private LoginService loginService;
 
     @PostMapping("/register")
-    public ResponseEntity<UserDetails> registerUser(@RequestBody UserDetails userDetails) {
+    public UserDetails registerUser(@RequestBody UserDetails userDetails) {
         UserDetails newUser = loginService.saveUser(userDetails);
-        return new ResponseEntity<>(newUser, HttpStatus.CREATED);
+        System.out.println("User Found "+ newUser.getUsername());
+        return newUser;
     }
 
     @GetMapping("/login")
     public UserDetails login(@RequestBody LoginDto usernameandpassword) {
+        System.out.println("Login Controller hitted ");
+        long startTime = System.currentTimeMillis();
         UserDetails user = loginService.findUserByUsernameAndPassword(usernameandpassword);
+        long endTime = System.currentTimeMillis();
+        System.out.println("User Found "+ user.getUsername());
+        System.out.println("Time taken to fetch item: " + (endTime - startTime) + "ms");
         return user;
     }
 

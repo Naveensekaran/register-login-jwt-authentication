@@ -4,16 +4,12 @@ import com.Login.LoginAuthentication.dto.LoginDto;
 import com.Login.LoginAuthentication.model.UserDetails;
 import com.Login.LoginAuthentication.repository.LoginRepo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-
 @Service
-public class LoginService implements UserDetailsService {
+public class LoginService{
 
     @Autowired
     private LoginRepo loginRepo;
@@ -30,18 +26,28 @@ public class LoginService implements UserDetailsService {
         return loginRepo.findByUsername(username);
     }
 
+    @Cacheable(value = "loginDetails")
     public UserDetails findUserByUsernameAndPassword(LoginDto usernameandpassword) {
         String username = usernameandpassword.getUsername();
-        String password = usernameandpassword.getPassword();
-        return loginRepo.findByUsernameAndPassword(username, password);
+        System.out.println("Fetching item from database with id: {}");
+        String reqpassword = usernameandpassword.getPassword();
+        String encodereqpassword = passwordEncoder.encode(reqpassword);
+        UserDetails user = null;
+        try {
+            Thread.sleep(3000);
+            user =  loginRepo.findByUsernameAndPassword(username,encodereqpassword);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return user;
     }
 
-    @Override
-    public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        UserDetails user = loginRepo.findByUsername(username);
-        if (user == null) {
-            throw new UsernameNotFoundException("User not found with username: " + username);
-        }
-        return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), new ArrayList<>());
-    }
+//    @Override
+//    public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+//        UserDetails user = loginRepo.findByUsername(username);
+//        if (user == null) {
+//            throw new UsernameNotFoundException("User not found with username: " + username);
+//        }
+//        return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), new ArrayList<>());
+//    }
 }
