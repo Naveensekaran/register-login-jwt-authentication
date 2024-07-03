@@ -3,8 +3,10 @@ package com.Login.LoginAuthentication.controller;
 import com.Login.LoginAuthentication.dto.LoginDto;
 import com.Login.LoginAuthentication.model.UserDetails;
 import com.Login.LoginAuthentication.service.LoginService;
+import com.Login.LoginAuthentication.utility.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,6 +14,9 @@ public class LoginController {
 
     @Autowired
     private LoginService loginService;
+
+    @Autowired
+    private JwtUtils jwtUtils;
 
     @PostMapping("/register")
     public UserDetails registerUser(@RequestBody UserDetails userDetails) {
@@ -26,8 +31,9 @@ public class LoginController {
         long startTime = System.currentTimeMillis();
         UserDetails user = loginService.findUserByUsernameAndPassword(usernameandpassword);
         long endTime = System.currentTimeMillis();
-        System.out.println("User Found "+ user.getUsername());
         System.out.println("Time taken to fetch item: " + (endTime - startTime) + "ms");
+
+        String token = jwtUtils.generateToken(user);
         return user;
     }
 

@@ -3,10 +3,16 @@ package com.Login.LoginAuthentication.service;
 import com.Login.LoginAuthentication.dto.LoginDto;
 import com.Login.LoginAuthentication.model.UserDetails;
 import com.Login.LoginAuthentication.repository.LoginRepo;
+import com.Login.LoginAuthentication.utility.JwtUtils;
+import com.Login.LoginAuthentication.utility.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 @Service
 public class LoginService{
@@ -15,10 +21,12 @@ public class LoginService{
     private LoginRepo loginRepo;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private PasswordUtil passwordUtil;
+
 
     public UserDetails saveUser(UserDetails userDetails) {
-        userDetails.setPassword(passwordEncoder.encode(userDetails.getPassword()));
+        String hashedPassword = passwordUtil.hashPassword(userDetails.getPassword());
+        userDetails.setPassword(hashedPassword);
         return loginRepo.save(userDetails);
     }
 
@@ -28,19 +36,25 @@ public class LoginService{
 
     @Cacheable(value = "loginDetails")
     public UserDetails findUserByUsernameAndPassword(LoginDto usernameandpassword) {
-        String username = usernameandpassword.getUsername();
-        System.out.println("Fetching item from database with id: {}");
-        String reqpassword = usernameandpassword.getPassword();
-        String encodereqpassword = passwordEncoder.encode(reqpassword);
-        UserDetails user = null;
-        try {
-            Thread.sleep(3000);
-            user =  loginRepo.findByUsernameAndPassword(username,encodereqpassword);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        System.out.println("service called");
+        UserDetails user = loginRepo.findByUsername(usernameandpassword.getUsername());
+        if(user == null){
+            return null;
+        }
+
+        String rawPassword = usernameandpassword.getPassword();
+        String storedHashedPassword = user.getPassword();
+        System.out.println("Stored hashed password: " + storedHashedPassword);
+
+        Boolean login = passwordUtil.verifyPassword(rawPassword, storedHashedPassword);
+        System.out.println("Login Status "+login);
+
+        if (login == false){
+            return null;
         }
         return user;
     }
+
 
 //    @Override
 //    public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
