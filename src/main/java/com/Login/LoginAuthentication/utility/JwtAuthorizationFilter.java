@@ -1,50 +1,80 @@
 package com.Login.LoginAuthentication.utility;
 
-import io.jsonwebtoken.Jwts;
-import org.springframework.security.authentication.AuthenticationManager;
+import com.Login.LoginAuthentication.model.UserDetails;
+import com.Login.LoginAuthentication.service.LoginService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.web.filter.OncePerRequestFilter;
+import io.jsonwebtoken.ExpiredJwtException;
+import org.springframework.stereotype.Component;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
 
-public class JwtAuthorizationFilter extends BasicAuthenticationFilter {
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class JwtAuthorizationFilter extends OncePerRequestFilter implements Ordered {
 
-    public JwtAuthorizationFilter(AuthenticationManager authManager) {
-        super(authManager);
+    @Autowired
+    private JwtUtils jwtUtils;
+
+    @Autowired
+    private UserDetailsService userDetailsService;
+
+    public JwtAuthorizationFilter(JwtUtils jwtUtils) {
+        this.jwtUtils = jwtUtils;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws IOException, ServletException, ServletException, IOException {
-        String header = req.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            chain.doFilter(req, res);
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+
+        final String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        System.out.println("authorizationHeader "+authorizationHeader);
+
+        String username = null;
+        String jwtToken = null;
+
+        // JWT Token is in the form "Bearer token". Remove Bearer word and get only the Token
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            jwtToken = authorizationHeader.substring(7);
+            try {
+                username = jwtUtils.extractUsername(jwtToken);
+                System.out.println("Username "+ username);
+
+            } catch (ExpiredJwtException e) {
+                logger.warn("JWT Token has expired");
+            }
+        } else {
+            logger.warn("JWT Token does not begin with Bearer String");
         }
-        UsernamePasswordAuthenticationToken authentication = getAuthentication(req);
-        if (authentication != null) {
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+            UserDetails userDetails = (UserDetails) userDetailsService.loadUserByUsername(username);
+
+            if (jwtUtils.validateToken(jwtToken, userDetails)) {
+                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, null);
+                usernamePasswordAuthenticationToken
+                        .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+            }
         }
-        chain.doFilter(req, res);
+        chain.doFilter(request, response);
     }
 
-    private UsernamePasswordAuthenticationToken getAuthentication(HttpServletRequest request) {
-        String token = request.getHeader("Authorization");
-        if (token != null) {
-            String user = Jwts.parser()
-                    .setSigningKey("SecretKeyToGenJWTs")
-                    .parseClaimsJws(token.replace("Bearer ", ""))
-                    .getBody()
-                    .getSubject();
-
-            if (user != null) {
-                return new UsernamePasswordAuthenticationToken(user, null, new ArrayList<>());
-            }
-            return null;
-        }
-        return null;
+    @Override
+    public int getOrder() {
+        return Ordered.HIGHEST_PRECEDENCE;
     }
 }

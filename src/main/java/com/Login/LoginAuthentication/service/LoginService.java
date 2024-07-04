@@ -7,15 +7,17 @@ import com.Login.LoginAuthentication.utility.JwtUtils;
 import com.Login.LoginAuthentication.utility.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 
 @Service
-public class LoginService{
+public class LoginService implements UserDetailsService {
 
     @Autowired
     private LoginRepo loginRepo;
@@ -55,13 +57,24 @@ public class LoginService{
         return user;
     }
 
+    public UserDetails updateUser(UserDetails userDetails) {
+        UserDetails existingUser = loginRepo.findById(userDetails.getId()).orElse(null);
+        if (existingUser != null) {
+            String hashedPassword = passwordUtil.hashPassword(userDetails.getPassword());
+            existingUser.setUsername(userDetails.getUsername());
+            existingUser.setPassword(hashedPassword);
+            return loginRepo.save(existingUser);
+        }
+        return null;
+    }
 
-//    @Override
-//    public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-//        UserDetails user = loginRepo.findByUsername(username);
-//        if (user == null) {
-//            throw new UsernameNotFoundException("User not found with username: " + username);
-//        }
-//        return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), new ArrayList<>());
-//    }
+
+    @Override
+    public org.springframework.security.core.userdetails.UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        UserDetails user = loginRepo.findByUsername(username);
+        if (user == null) {
+            throw new UsernameNotFoundException("User not found with username: " + username);
+        }
+        return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), new ArrayList<>());
+    }
 }

@@ -27,17 +27,18 @@ public class JwtUtils {
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
-                .signWith(SignatureAlgorithm.ES256, SECRET_KEY)
+                .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
                 .compact();
     }
 
     public boolean validateToken(String token, UserDetails userDetails){
         String username = extractUsername(token);
-        return username != null && username.equals(userDetails.getUsername());
+        return username != null && username.equals(userDetails.getUsername()) && isTokenExpired(token);
     }
 
     public String extractUsername(String token){
-        return extractUsername(token);
+        return extractClaim(token,Claims::getSubject);
+
     }
 
     public Date extractExpiration(String token) {
